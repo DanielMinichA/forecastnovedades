@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consulta de novedades</title>
+<style>
+body{font:16px system-ui;background:#f3f5f9;color:#17253e;margin:0}main{max-width:900px;margin:40px auto;padding:24px}h1{margin-bottom:8px}p{line-height:1.6}.card{background:white;border:1px solid #dde3ec;border-radius:16px;padding:24px;margin:20px 0}textarea{box-sizing:border-box;width:100%;padding:14px;border:1px solid #aab7c9;border-radius:8px;font:inherit;resize:vertical}button{background:#235ad1;color:white;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer;margin-top:12px}button:disabled{opacity:.6;cursor:wait}#status,.muted{color:#52627c}#reply{white-space:pre-wrap;line-height:1.7}.error{color:#ac2632}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;font:inherit;line-height:1.6}li{margin:8px 0}label{display:block;margin-bottom:12px}small{display:block;margin-top:12px}
+</style>
+<main><h1>Consulta de novedades</h1><p class="muted">Haz preguntas sobre tus documentos Word. Las respuestas incluyen los fragmentos usados como fuentes.</p>
+<section class="card"><strong>Documentos disponibles</strong><p id="status" role="status">Leyendo carpeta…</p><details><summary>Ver archivos y avisos</summary><ul id="files"></ul></details><button id="reload" type="button">Actualizar carpeta</button></section>
+<form class="card" id="form"><label for="question">¿Qué quieres saber?</label><textarea id="question" rows="3" maxlength="2000" required placeholder="Ejemplo: ¿Qué novedades hay sobre el proyecto Forecast?"></textarea><button id="ask">Consultar documentos</button><small class="muted">Se usa Ollama en tu PC. La búsqueda selecciona fragmentos por palabras; revisa las fuentes para confirmar la respuesta.</small></form>
+<section class="card" id="result" hidden aria-live="polite"><h2>Respuesta</h2><div id="reply"></div><div id="sources"></div></section></main>
+<script>
+const $=id=>document.getElementById(id);
+async function request(url,options){const r=await fetch(url,options);const data=await r.json();if(!r.ok)throw Error(data.error||'No se pudo completar la consulta');return data}
+async function load(){ $('status').textContent='Leyendo carpeta…';$('files').replaceChildren();try{const d=await request('/api/documents');$('status').textContent=`${d.files.length} archivos .docx · ${d.chunks} fragmentos · Modelo: ${d.model}\nCarpeta: ${d.path}`;for(const name of [...d.files,...d.warnings]){const li=document.createElement('li');li.textContent=name;$('files').append(li)}}catch(e){$('status').textContent=e.message}}
+$('reload').onclick=load;
+$('form').onsubmit=async e=>{e.preventDefault();$('ask').disabled=true;$('result').hidden=false;$('reply').textContent='Consultando documentos… La primera respuesta puede tardar mientras se carga el modelo.';$('sources').replaceChildren();try{const d=await request('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:$('question').value})});$('reply').textContent=d.answer;d.sources.forEach((s,i)=>{const detail=document.createElement('details');const title=document.createElement('summary');title.textContent=`[${i+1}] ${s.file} — párrafo ${s.paragraph}`;const p=document.createElement('pre');p.textContent=s.text;detail.append(title,p);$('sources').append(detail)});for(const warning of d.warnings){const p=document.createElement('p');p.textContent=warning;$('sources').append(p)}}catch(e){$('reply').textContent=e.message}finally{$('ask').disabled=false}};
+load();
+</script></html>
